@@ -6,3 +6,4 @@ shap
 pyreadstat
 matplotlib
 scikit-learn
+seaborn
