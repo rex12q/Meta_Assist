@@ -42,6 +42,10 @@ def build_ma(sav_file,csv_file,selected_features,use_hba=False,edit_cate_list=[]
     pd.set_option('display.precision',1) #소수점 1자리까지만 출력
     print(df.head(4).to_string()) 
 
+    #문제점: 대사증후군 위험군 진단(X) -> 대사 관련 질환 보유 단계(O)
+    #26.11.12: 위험군 진단을 하기 위해선 아래 항목: WC, 없는 항목: HDL, 중성지방 항목이 있어야 함. 그러나 관련 항목을 대사증후군 진단이라고 씀.
+    #danger_score[WC](+ [HDL], [중성지방])
+    
     # %% [Cell 2] 피처 분할 및 고유의 3단계 대사증후군 타겟 빌드
     # 대한민국 의학 표준 가이드라인 기반의 가상 3단계 분류 타겟(0:정상, 1:주의, 2:고위험) 설정
     # 실제 데이터의 컬럼 상황에 맞게 융통성 있게 작동하도록 안전 장치 가동
@@ -72,13 +76,16 @@ def build_ma(sav_file,csv_file,selected_features,use_hba=False,edit_cate_list=[]
             warning_score += (df['GLU'].between(100.0,125.9)).astype(int)
         if 'SBP' in df.columns:
             danger_score +=(df['SBP'] >= 140.0).astype(int) #고혈압 1기
-            (df['SBP'].between(130.0, 139.9)).astype(int) #고혈압 전단계
+            warning_score += (df['SBP'].between(130.0, 139.9)).astype(int) #고혈압 전단계
         if 'DBP' in df.columns:
             danger_score +=(df['DBP'] >= 90.0).astype(int) #이완기 고혈압
-            (df['DBP'].between(85.0, 89.9)).astype(int)  #이완기 주의혈압
+            warning_score += (df['DBP'].between(85.0, 89.9)).astype(int)  #이완기 주의혈압
         if 'BMI' in df.columns:
             danger_score +=(df['BMI'] >= 25.0).astype(int) #비만(WC 대체 가능)
-            (df['BMI'].between(23.0, 24.9)).astype(int) #과체중
+            #26.11.12(문제점): '비만'항목을 '허리둘레' 항목으로 대체할 수 없다. 복부비만이 있는 경우 비만 동반 질환 위험도를 상향하여 관리(+)
+            warning_score += (df['BMI'].between(23.0, 24.9)).astype(int) #과체중
+            #26.11.12: SBP,DBP,BMI 전단계에 점수 반영
+            #문제점: 실제로
         
         # 데이터에 당화혈색소(HbA) 칼럼이 필요할 시 추가 기능 설계
         if use_hba and 'HbA' in df.columns:
@@ -90,11 +97,12 @@ def build_ma(sav_file,csv_file,selected_features,use_hba=False,edit_cate_list=[]
         conditions = [
             #class 2 (고위험): 심각한 수치 1개 OR 애매한 수치 3개 이상 겹칠 때(대사증후군 확진 기준)
             ((danger_score>=1) | ((danger_score+warning_score)>=3)),
-            #class 1 (주의군): 애매한 수치가 1~2개 (생활습관 교정)
+            #class 1 (주의군): 애매한 수치가 1개 (생활습관 교정)
             (warning_score>=1)
         ]
         #순서에 맞춰서 2(고위험), 1(주의), 0(정상) 부여
         df['target'] = np.select(conditions,[2,1],default=0)
+        #class_2에선 3개
 
     ## 수동 설정 ##
     # 진료에 쓰일 핵심 독립변수(X)와 종속변수(y) 분리
