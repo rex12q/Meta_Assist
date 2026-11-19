@@ -42,9 +42,9 @@ def build_ma(sav_file,csv_file,selected_features,use_hba=False,edit_cate_list=[]
     pd.set_option('display.precision',1) #소수점 1자리까지만 출력
     print(df.head(4).to_string()) 
 
-    #문제점: 대사증후군 위험군 진단(X) -> 대사 관련 질환 보유 단계(O)
+    #문제점2: 대사증후군 위험군 진단(X) -> 대사 관련 질환 보유 단계(O)
     #26.11.12: 위험군 진단을 하기 위해선 아래 항목: WC, 없는 항목: HDL, 중성지방 항목이 있어야 함. 그러나 관련 항목을 대사증후군 진단이라고 씀.
-    #danger_score[WC](+ [HDL], [중성지방])
+    #해결: danger_score[WC](+ [HDL], [중성지방])를 추가해야 하며 데이터 내에 속한 속성을 똑바로 확인해야 함
     
     # %% [Cell 2] 피처 분할 및 고유의 3단계 대사증후군 타겟 빌드
     # 대한민국 의학 표준 가이드라인 기반의 가상 3단계 분류 타겟(0:정상, 1:주의, 2:고위험) 설정
@@ -66,10 +66,12 @@ def build_ma(sav_file,csv_file,selected_features,use_hba=False,edit_cate_list=[]
         ## 수동 설정 ##
 
         #사용자가 추가한 변수만 동적으로 타겟 스코어링에 포함되도록 방어 코드 설계
+        #(문제점3): 이렇게 구조를 짜면 WC 양성 판정을 받은, 이하 항목 전부 음성 판정인 환자들은 고위험군으로 분류가 되어버림
         danger_score = info_wc
         warning_score = 0
 
         # 대사증후군 진단 지표(공복혈당, 복부비만, 혈압 등) 조건문 시스템
+        # (문제점3): 대사증후군 -> 대사 위험 분류(사용자 정의)
         #1.고위험,주의(두 가지 범위를 같이 설계) 요소 카운트
         if 'GLU' in df.columns:
             danger_score += (df['GLU'] >= 126.0).astype(int) #당뇨 의심
@@ -82,10 +84,10 @@ def build_ma(sav_file,csv_file,selected_features,use_hba=False,edit_cate_list=[]
             warning_score += (df['DBP'].between(85.0, 89.9)).astype(int)  #이완기 주의혈압
         if 'BMI' in df.columns:
             danger_score +=(df['BMI'] >= 25.0).astype(int) #비만(WC 대체 가능)
-            #26.11.12(문제점): '비만'항목을 '허리둘레' 항목으로 대체할 수 없다. 복부비만이 있는 경우 비만 동반 질환 위험도를 상향하여 관리(+)
+            #26.11.12(문제점3): '비만'항목을 '허리둘레' 항목으로 대체할 수 없다. 복부비만이 있는 경우 비만 동반 질환 위험도를 상향하여 관리(+)
             warning_score += (df['BMI'].between(23.0, 24.9)).astype(int) #과체중
             #26.11.12: SBP,DBP,BMI 전단계에 점수 반영
-            #문제점: 실제로
+            #(문제점3): 실제로 속성 조건을 넘었다 하더라도 아래 조건에 의해 조건이 무의미함
         
         # 데이터에 당화혈색소(HbA) 칼럼이 필요할 시 추가 기능 설계
         if use_hba and 'HbA' in df.columns:
@@ -94,6 +96,8 @@ def build_ma(sav_file,csv_file,selected_features,use_hba=False,edit_cate_list=[]
         #2.나머지 남은 조건 요소: 정상 카운트 
 
         #3.최종 타겟 부여
+        #26.11.20(문제점3): 심각한 수치 1개 이상 조건이 이미 고위험군에 분류되므로 위 속성 조건은 의미가 없음
+        #해결: or로 조건을 세우지 말고 (danger_score + warning_score) >= 3 딱 하나만 설계
         conditions = [
             #class 2 (고위험): 심각한 수치 1개 OR 애매한 수치 3개 이상 겹칠 때(대사증후군 확진 기준)
             ((danger_score>=1) | ((danger_score+warning_score)>=3)),
@@ -107,8 +111,11 @@ def build_ma(sav_file,csv_file,selected_features,use_hba=False,edit_cate_list=[]
     ## 수동 설정 ##
     # 진료에 쓰일 핵심 독립변수(X)와 종속변수(y) 분리
     # 사용자가 직접 X에 넣을 변수를 선택할 수 있도록 selected_features 추가
+    
+    #26-11-19 문제점1: 데이터 누수 발견
     X = df[selected_features]
-    y = df['target']
+    y = df['target'] #위 if문 로직을 토대로 분류된 라벨이 독립변수와 겹치게 되어 로직을 외우게 됨
+    #해결: selected_feature에는 연관된 모든 항목을 사용자가 선택할 수 없도록 제한해야 함.
 
     # 근본 분할 비율 8:2 적용 및 무작위 고정 난수 42 매칭
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
