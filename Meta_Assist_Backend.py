@@ -121,18 +121,29 @@ def build_ma(sav_file,csv_file,selected_features,use_hba=False,edit_cate_list=[]
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
 
     # %% [Cell 3] 데이터 누수 차단용 ColumnTransformer & 자동화 파이프라인 설계
-    
+
+    #26-11-20 (문제점4): 범주형 데이터에 순서형 데이터를 기입했다.
     Master_cate_list = [
         'Gender', 'Smoke', 'Town', 'AgeGroup', 'Education', 
         'HP', 'DM', 'DSP', 'ALG', 'FamilyHistory', 'Drink'
     ]
+    
+    #해결: 해당 변수에서 순서형 데이터를 제외하고 따로 변수를 만든다.
+    #순서형 데이터
+    # sort_cate_list = ['AgeGroup', 'Education', #필요할 시 추가]
+    # fianl_sort_list = list(set(sort_cate_list))
+    
     #총합 범주형
     final_cate_list = list(set(Master_cate_list+edit_cate_list))
 
     ## 수동 설정 ##
     # 연속형(수치) 변수와 범주형 변수를 분기하여 최적의 결측치 대체법 매칭
+    #26-11-20 (문제점4): 순서형 데이터가 포함되어 있다
     categorical_features = [col for col in selected_features if col in final_cate_list] # 만약 성별이나 흡연 등의 컬럼이 포함될 시 여기에 수동 기입
-    
+
+    #해결: 따로 빼둬서 담아준다
+    #sort_features = [col for col in selected_features if col in final_sort_list]
+
     # 연속형(수치) 변수와 범주형 변수를 분기하여 최적의 결측치 대체법 매칭
     numeric_features = [col for col in selected_features if col not in final_cate_list]
 
