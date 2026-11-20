@@ -193,12 +193,12 @@ def build_ma(sav_file,csv_file,selected_features,use_hba=False,edit_cate_list=[]
     grid_search = GridSearchCV(meta_assist_pipe, param_grid, cv=5, scoring='recall_macro', n_jobs=-1)
     grid_search.fit(X_train, y_train)
 
-    # 최고의 퍼포먼스를 보여주는 마스터 모델 추출
+    # 최고 정확도 보여주는 마스터 모델 추출
     print('')
     best_doctor_model = grid_search.best_estimator_
     print(f"최적의 하이퍼파라미터 조합: {grid_search.best_params_}")
     print('')
-    print(f"내과/가정의학과 검증 데이터 최고 정확도: {grid_search.best_score_*100:.1f}%")
+    print(f"대상 데이터에 대한 모델의 최고 정확도: {grid_search.best_score_*100:.1f}%")
 
     # %% [Cell 5] 의료진 설득용 SHAP 데이터 설명 모델 엔진 구축
     print("\nMeta_Assist: 설명 가능한 AI (XAI) 시각화 엔진을 구축합니다...")
