@@ -71,7 +71,7 @@ def build_ma(sav_file,csv_file,selected_features,use_hba=False,edit_cate_list=[]
         warning_score = 0
 
         # 대사증후군 진단 지표(공복혈당, 복부비만, 혈압 등) 조건문 시스템
-        # (문제점3): 대사증후군 -> 대사 위험 분류(사용자 정의)
+        # (문제점3): 대사증후군 -> 대사 위험 단계 분류(사용자 정의)를 위한 조건문
         #1.고위험,주의(두 가지 범위를 같이 설계) 요소 카운트
         if 'GLU' in df.columns:
             danger_score += (df['GLU'] >= 126.0).astype(int) #당뇨 의심
@@ -87,7 +87,7 @@ def build_ma(sav_file,csv_file,selected_features,use_hba=False,edit_cate_list=[]
             #26.11.12(문제점3): '비만'항목을 '허리둘레' 항목으로 대체할 수 없다. 복부비만이 있는 경우 비만 동반 질환 위험도를 상향하여 관리(+)
             warning_score += (df['BMI'].between(23.0, 24.9)).astype(int) #과체중
             #26.11.12: SBP,DBP,BMI 전단계에 점수 반영
-            #(문제점3): 실제로 속성 조건을 넘었다 하더라도 아래 조건에 의해 조건이 무의미함
+            #(문제점3): 실제로 속성 조건을 넘었다 하더라도 아래 조건에 의해 조건이 무의미함 (+=warning_score로 해결됨)
         
         # 데이터에 당화혈색소(HbA) 칼럼이 필요할 시 추가 기능 설계
         if use_hba and 'HbA' in df.columns:
@@ -177,7 +177,7 @@ def build_ma(sav_file,csv_file,selected_features,use_hba=False,edit_cate_list=[]
     meta_assist_pipe = Pipeline(steps=[
         ('preprocessor', preprocessor),
         #multi:softprob은 다중 결과를 출력할 때 사용하며 단순 결과를 출력하는게 아닌 각 카테고리 별 퍼센트 비율을 동시에 출력
-        ('xgb', XGBClassifier(objective='multi:softprob', random_state=42, eval_metric='mlogloss'))
+        ('xgb', XGBClassifier(objective='multi:softprob', random_state=42))
     ])
 
     # 최적의 속도와 정확도 밸런스를 찾는 하이퍼파라미터 그리드 격자 설정
